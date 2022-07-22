@@ -1,7 +1,6 @@
 import msvcrt
 import os.path
 
-import google.auth
 import requests
 from pycbrf.toolbox import ExchangeRates
 from google.auth.transport.requests import Request
@@ -13,7 +12,6 @@ import psycopg2
 from psycopg2 import Error as DB_Error
 from configparser import ConfigParser
 import time
-
 import sys
 
 
@@ -63,7 +61,7 @@ def main():
         queue = get_queue()
         if queue:
             execute_query_to_db(queue)
-        if not today and today!=time.strftime("%d-%m-%Y") :
+        if not today and today != time.strftime("%d-%m-%Y"):
             today = time.strftime("%d-%m-%Y")
             notifications = get_notification_from_db(today)
             send_telegram(notifications)
@@ -247,10 +245,10 @@ def get_notification_from_db(today):
         cursor = connection.cursor()
         sql_string = f""" SELECT * FROM orders WHERE delivery_date < %s"""
 
-        cursor.execute(sql_string,(today,))
+        cursor.execute(sql_string, (today,))
         for row in cursor:
             # print(row[1])
-            notification+=f'Срок поставки по заказу {row[1]} прошел!\n'
+            notification += f'Срок поставки по заказу {row[1]} прошел!\n'
         return notification
     except (Exception, DB_Error) as error:
         print(get_time() + '[NOTIFICATION_ERR] ', error)
@@ -275,6 +273,7 @@ def send_telegram(text: str):
     if r.status_code != 200:
         raise Exception("post_text error")
 
+
 def get_data_from_db():
     data_for_django = ''
     connection = None
@@ -285,12 +284,12 @@ def get_data_from_db():
 
         cursor.execute(sql_string)
         for row in cursor:
-            date=str(row[3])
+            date = str(row[3])
             year, month, day = date.split('-')
-            date=f'{day}/{month}/{year}'
+            date = f'{day}/{month}/{year}'
 
             # print(f'{day}/{month}/{year}')
-            data_for_django+=f'{date},"{row[2]}"\n'
+            data_for_django += f'{date},"{row[2]}"\n'
         print(data_for_django)
         return data_for_django
     except (Exception, DB_Error) as error:
@@ -302,27 +301,4 @@ def get_data_from_db():
 
 
 if __name__ == '__main__':
-    get_data_from_db()
-    # get_notification_from_db()
-    # print(get_data_from_sheet())
-    # VALUES = {'31|1581192|1474|17.05.2022', '9|1876515|1335|15.05.2022', '11|1465034|719|12.05.2022', '6|1135907|682|02.05.2022',
-    #           '19|1888432|388|11.05.2022',
-    #           '33|1844121|770|08.05.2022', '4|1060503|1804|29.05.2022', '30|1773045|977|27.05.2022', '27|1241924|1319|16.05.2022',
-    #           '44|1592686|514|23.05.2022',
-    #           '5|1617397|423|26.05.2022', '40|1897398|414|01.06.2022', '51|1426726|1997|21.05.2022', '23|1339024|341|12.05.2022',
-    #           '50|1426726|1997|20.05.2022',
-    #           '21|1938886|1021|03.05.2022', '26|1519872|1349|01.06.2022', '37|1915966|154|04.05.2022', '36|1615303|1242|22.05.2022',
-    #           '34|1089979|1392|14.05.2022', '46|1485012|1124|09.05.2022', '10|1835607|1227|05.05.2022', '12|1077923|508|01.06.2022',
-    #           '38|1287751|1891|17.05.2022', '14|1682035|1867|09.05.2022', '3|1120833|610|05.05.2022', '42|1168728|658|03.05.2022',
-    #           '18|1917698|1322|25.05.2022', '17|1686040|129|01.06.2022', '35|1465628|1808|01.06.2022', '39|1498932|1162|21.05.2022',
-    #           '29|1733144|392|22.05.2022', '15|1911795|1585|25.05.2022', '20|1430015|814|28.05.2022', '41|1810448|1668|11.05.2022',
-    #           '45|1786437|618|28.05.2022', '24|1832176|1331|06.05.2022', '25|1554847|1755|20.05.2022', '47|1741017|514|16.05.2022',
-    #           '1|1249708|675|24.05.2022',
-    #           '7|1235370|1330|05.05.2022', '2|1182407|214|13.05.2022', '32|1021563|145|08.05.2022', '13|1968041|1600|21.05.2022',
-    #           '22|1968437|1911|20.05.2022',
-    #           '16|1028782|1377|19.05.2022', '49|1877503|124|29.05.2022', '28|1208915|168|01.05.2022', '43|1560222|1587|11.05.2022',
-    #           '8|1329994|646|12.05.2022', '48|1497493|1198|30.05.2122'}
-    # VALUES = get_data_from_sheet()
-
-    # print(get_queue())
-    # main()
+    main()
