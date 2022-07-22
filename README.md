@@ -35,6 +35,9 @@
 ### Зависимости
 - Список необходимых библиотек находится в файле Pipfile.lock.
 ```sh
+pipenv shell
+```
+```sh
 pipenv install
 ```
 
