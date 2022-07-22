@@ -1,69 +1,56 @@
-## Тестовое задание Python
-Необходимо разработать скрипт на языке Python 3, который будет выполнять следующие функции:
+
+# **Тестовое задание Python**
+
+Необходимо разработать скрипт на языке Python 3, 
+
+который будет выполнять следующие функции:
 
 1. Получать данные с документа при помощи Google API, сделанного в [Google Sheets](https://docs.google.com/spreadsheets/d/1f-qZEX1k_3nj5cahOzntYAnvO4ignbyesVO7yuBdv_g/edit) (необходимо копировать в свой Google аккаунт и выдать самому себе права).
 2. Данные должны добавляться в БД, в том же виде, что и в файле –источнике, с добавлением колонки «стоимость в руб.»
-    * Необходимо создать DB самостоятельно, СУБД на основе PostgreSQL.
-    * Данные для перевода $ в рубли необходимо получать по курсу [ЦБ РФ](https://www.cbr.ru/development/SXML/).
+    
+    a. Необходимо создать DB самостоятельно, СУБД на основе PostgreSQL.
+    
+    b. Данные для перевода $ в рубли необходимо получать по курсу [ЦБ РФ](https://www.cbr.ru/development/SXML/).
+    
 3. Скрипт работает постоянно для обеспечения обновления данных в онлайн режиме (необходимо учитывать, что строки в Google Sheets таблицу могут удаляться, добавляться и изменяться).
 
 Дополнения, которые дадут дополнительные баллы и поднимут потенциальный уровень оплаты труда:
 
-1. * Упаковка решения в docker контейнер
-   * Разработка функционала проверки соблюдения «срока поставки» из таблицы. В случае, если срок прошел, скрипт отправляет уведомление в Telegram.
-   * Разработка одностраничного web-приложения на основе Django или Flask. Front-end React.
+1. a. Упаковка решения в docker контейнер
+    
+    b. Разработка функционала проверки соблюдения «срока поставки» из таблицы. В случае, если срок прошел, скрипт отправляет уведомление в Telegram.
+    
+    c. Разработка одностраничного web-приложения на основе Django или Flask. Front-end React.
+    
+    ![Untitled](https://kanalservis.notion.site/image/https%3A%2F%2Fs3-us-west-2.amazonaws.com%2Fsecure.notion-static.com%2F6ee6a638-c52e-46a0-9c2d-cb518c955fb1%2FUntitled.png?table=block&id=b1d9d345-46fe-49b7-8909-2884086d4be1&spaceId=dbcc5cf8-15c2-4d75-bb66-44a130d346fa&width=2000&userId=&cache=v2)
+    
+
+1. Решение на проверку передается в виде ссылки на проект на Github.
+В описании необходимо указать ссылку на ваш Google Sheets документ (открыть права чтения и записи для пользователя [irbispro10@gmail.com](mailto:irbispro10@gmail.com)), а также инструкцию по запуску разработанных скриптов.
 ******************************
-### Задание выполнено с использованием библиотек:
-#### Для скрипта
-* psycopg2 (для подключения к БД PostgreSQL)
-* pygsheets (для подключения к Google sheets API)
-* requests
-* lxml
-* BeautifulSoup4 (для парсинга xml страницы с курсами валют)
-#### Для web-приложения
-* Django (backend)
-* Djnago Rest Framework (для связи backend'a и frontend'a)
-* drf-yasg
-* django-cors-headers
-* React (frontend)
-* react-bootstrap (стилистика)
-* recharts (график)
 
 ### Ссылка на Google table с выданым доступом
-[Google table](https://docs.google.com/spreadsheets/d/1N6wLleVKbIJKK1uYm4aV0gT0q03RRwbGwmnUaPHgspY/edit?usp=sharing)
-
+[Google table](https://docs.google.com/spreadsheets/d/1ki8CrRI7vUo0f4JqWiopPh4y7ffxX2BP2uvRg6eqb_0/edit#gid=0)
 
 ### Зависимости
-- Список необходимых библиотек находится в файле requirements.txt и frontend/package.json
-- Так-же должены быть установлены Python 3.10, Node.js не ниже версии 14.0.0 и npm не ниже версии 5.6
+- Список необходимых библиотек находится в файле Pipfile.lock.
 ```sh
-pip install -r requirements.txt # в созданном виртуальном окружении
-npm install # в дирректории frontend
+pipenv install
 ```
 
 ### Настройки
-Для корректного подключения к локальной базе данных PostgreSQL, необходимо в файле app/config.py указать свои значения для переменных db_name,db_user,db_password,db_host,db_port. В случае изменения предустановленных параметов базы данных, продублировать эти изменения для DATABASES в kanalservis/kanalservis/settings.py
+Для корректного подключения к локальной базе данных PostgreSQL, необходимо в файле script/project.ini в секции [postgresql] указать свои значения для переменных.
+
+###Для получения уведомлений в Telegramm о вышедших сроках поставки необходимо добавиться в канал https://t.me/db_notice
 
 # Запуск скрипта
 
 ```sh
-python __init__.py
+py main_script.py
 
 ```
-* в директории script
 
-# Запуск Веб-приложения
 
-```sh
-python manage.py runserver
 
-```
-* в директории backend с активироанным виртуальным окружением (venv)
-
-```sh
-npm start
-
-```
-* в директории frontend
 
 
