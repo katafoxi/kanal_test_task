@@ -2,6 +2,7 @@ import msvcrt
 import os.path
 
 import google.auth
+import requests
 from pycbrf.toolbox import ExchangeRates
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -37,10 +38,13 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 CREDENTIALS = get_config(section='googleAPI')['credentials_json_name']
 SPREADSHEET_ID = get_config(section='googleAPI')['spreadsheet_id']
 SHEET_RANGE = 'Лист1!A2:E'
+PARAMS = get_config(section='postgresql')
 VALUES = None
 
 
 def main():
+    today = None
+    global VALUES
     print('===================================')
     print('To exit please push Escape/Ctrl+C')
     print('===================================')
@@ -49,17 +53,20 @@ def main():
         print("Please customize it. I'll wait")
     if not get_answer(question='database already exists?'):
         create_db()
-    if not get_answer(question='table already exists?'):
         create_table_db()
-        # get_query(mode='insert')
+    else:
+        VALUES = get_data_from_sheet()
 
     print('Application start\n\n')
     while True:
 
-        query = get_query()
-        if query:
-            execute_query_to_db(query)
-
+        queue = get_queue()
+        if queue:
+            execute_query_to_db(queue)
+        if not today and today!=time.strftime("%d-%m-%Y") :
+            today = time.strftime("%d-%m-%Y")
+            notifications = get_notification_from_db(today)
+            send_telegram(notifications)
 
         time.sleep(10)  # work period
         if msvcrt.kbhit():  # if key push
@@ -116,8 +123,7 @@ def get_data_from_sheet():
         sheet = service.spreadsheets()
         result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
                                     range=SHEET_RANGE).execute()
-        # values = result.get('values', [])
-        # values = tuple(result.get('values', []))
+
         values = result.get('values')
         mod_values = []
         if not values:
@@ -133,27 +139,54 @@ def get_data_from_sheet():
         print(err)
 
 
-def get_connection_db_obj():
-    try:
-        params = get_config(section='postgresql')
-        # print(get_time() + '[INFO] Connection to the PostgreSQL database...')
-        connection = psycopg2.connect(**params)
-        return connection
-    except (Exception, DB_Error) as error:
-        print(get_time() + '[ERR] ', error)
+def execute_query_to_db(queue):
+    rate = ExchangeRates()['USD'].value
+    for sub_queue in queue:
+        mod, collection = sub_queue
+        connection = None
+        try:
+            connection = psycopg2.connect(**PARAMS)
+            cursor = connection.cursor()
+
+            for row in collection:
+                id_, order_num, cost_us, delivery_date = row.split('|')
+                cost_ru = int(cost_us) * rate
+
+                if mod == 'delete':
+                    sql_string = f'DELETE FROM orders WHERE id = %s;'
+                    cursor.execute(sql_string, (id_,))
+                    print(get_time() + f'[INFO] Delete entry={id_}')
+
+                elif mod == 'insert':
+                    sql_string = 'INSERT INTO orders (id, order_num, cost_us, delivery_date, cost_ru)\
+                                VALUES (%s, %s, %s, %s, %s)'
+                    cursor.execute(sql_string, (id_, order_num, cost_us, delivery_date, cost_ru))
+                    print(get_time() + f'[INFO] Insert entry={id_}')
+
+                connection.commit()
+
+        except (Exception, DB_Error) as error:
+            print(get_time() + '[ERR] ', error)
+        finally:
+            if connection:
+                cursor.close()
+                connection.close()
+                print(get_time() + '[INFO] Database connection terminated')
 
 
-def execute_query_to_db(query, info_message=''):
+def create_db():
+    params = get_config(section='postgresql')
+    dbname = params.pop('dbname')  # retrieved to be able to create a database
     connection = None
     try:
-        connection = get_connection_db_obj()
+        connection = psycopg2.connect(**params)
+        connection.autocommit = True
         cursor = connection.cursor()
-        cursor.execute(query)
-        connection.commit()
-        info_message = get_time() + '[INFO] Data updated successfully'
-        print(info_message)
+        sql_string = f'CREATE database {dbname};'
+        cursor.execute(sql_string)
+        print(get_time() + f'[INFO] DB {dbname} created successfully')
     except (Exception, DB_Error) as error:
-        print(get_time() + '[ERR] ', error)
+        print(get_time() + '[CREATE_DB_ERR] ', error)
     finally:
         if connection:
             cursor.close()
@@ -161,77 +194,90 @@ def execute_query_to_db(query, info_message=''):
             print(get_time() + '[INFO] Database connection terminated')
 
 
-def create_db():
-    params = get_config(section='postgresql')
-    dbname = params.pop('dbname')
-    connection = psycopg2.connect(**params)
-    connection.autocommit = True
-    cursor = connection.cursor()
-    query = f'CREATE database {dbname};\n'
-    cursor.execute(query)
-    info_message = get_time() + f'[INFO] DB {dbname} created successfully'
-    print(info_message)
-    cursor.close()
-    connection.close()
-
-
 def create_table_db():
-    query = """ CREATE TABLE orders(
-                id integer NOT NULL  PRIMARY KEY,
-                order_num integer NOT NULL,
-                cost_us integer NOT NULL,
-                delivery_date date,
-                cost_ru decimal(10,2));"""
+    connection = None
+    try:
+        connection = psycopg2.connect(**PARAMS)
+        cursor = connection.cursor()
+        sql_string = """ CREATE TABLE orders(
+                            id integer NOT NULL  PRIMARY KEY,
+                            order_num integer NOT NULL,
+                            cost_us integer NOT NULL,
+                            delivery_date date,
+                            cost_ru decimal(10,2)); \n"""
 
-    info_message = get_time() + '[INFO] Table created successfully'
-    execute_query_to_db(query, info_message)
+        cursor.execute(sql_string)
+        connection.commit()
+        print(get_time() + '[INFO] Table created successfully')
+    except (Exception, DB_Error) as error:
+        print(get_time() + '[CREATE_TABLE_ERR] ', error)
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+            print(get_time() + '[INFO] Database connection terminated')
 
 
-def get_query():
-    query = ''
-    rate = ExchangeRates()['USD'].value
-
+def get_queue():
+    queue = tuple()
     global VALUES
     fresh_values = get_data_from_sheet()
 
     if not VALUES:
         VALUES = fresh_values
-        query = get_insert_quare(VALUES, rate)
-        return query
+        queue += ('insert', VALUES),
+        return queue
 
     elif fresh_values == VALUES:
         print(get_time() + '[INFO] no changes')
         return None
 
     else:
-        changes = VALUES.symmetric_difference(fresh_values)
-        query += get_delete_quare(changes)
-        changes = fresh_values - VALUES
-        query += get_insert_quare(changes, rate)
+        queue += ('delete', VALUES - fresh_values),
+        queue += ('insert', fresh_values - VALUES),
         VALUES = fresh_values
-        return query
+        return queue
 
 
-def get_delete_quare(changes):
-    delete_quare = ''
-    for row in changes:
-        id_, *_ = row.split('|')
-        if row in VALUES:
-            delete_quare += f'DELETE FROM orders WHERE id = {id_};\n'
-    return delete_quare
+def get_notification_from_db(today):
+    notification = ''
+    connection = None
+    try:
+        connection = psycopg2.connect(**PARAMS)
+        cursor = connection.cursor()
+        sql_string = f""" SELECT * FROM orders WHERE delivery_date < %s"""
+
+        cursor.execute(sql_string,(today,))
+        for row in cursor:
+            # print(row[1])
+            notification+=f'Срок поставки по заказу {row[1]} прошел!\n'
+        return notification
+    except (Exception, DB_Error) as error:
+        print(get_time() + '[NOTIFICATION_ERR] ', error)
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
 
 
-def get_insert_quare(changes, rate):
-    inset_quare = ''
-    for row in changes:
-        id_, order_num, cost_us, delivery_date = row.split('|')
-        sub_query = f"INSERT INTO orders (id, order_num, cost_us, delivery_date, cost_ru)  " \
-                    f"VALUES( {id_}, {order_num}, {cost_us}, '{delivery_date}', {int(cost_us) * rate});\n"
-        inset_quare += sub_query
-    return inset_quare
+def send_telegram(text: str):
+    token = "5596509052:AAHo-BGVpi_e4cfad--61p2Qu_iAMUpeNSY"
+    url = "https://api.telegram.org/bot"
+    channel_id = "@db_notice"
+    url += token
+    method = url + "/sendMessage"
+
+    r = requests.post(method, data={
+        "chat_id": channel_id,
+        "text": text
+    })
+
+    if r.status_code != 200:
+        raise Exception("post_text error")
 
 
 if __name__ == '__main__':
+    # get_notification_from_db()
     # print(get_data_from_sheet())
     # VALUES = {'31|1581192|1474|17.05.2022', '9|1876515|1335|15.05.2022', '11|1465034|719|12.05.2022', '6|1135907|682|02.05.2022',
     #           '19|1888432|388|11.05.2022',
@@ -252,7 +298,5 @@ if __name__ == '__main__':
     #           '8|1329994|646|12.05.2022', '48|1497493|1198|30.05.2122'}
     # VALUES = get_data_from_sheet()
 
-    # print(get_query())
+    # print(get_queue())
     main()
-
-    # print(VALUES)
