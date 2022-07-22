@@ -275,8 +275,34 @@ def send_telegram(text: str):
     if r.status_code != 200:
         raise Exception("post_text error")
 
+def get_data_from_db():
+    data_for_django = ''
+    connection = None
+    try:
+        connection = psycopg2.connect(**PARAMS)
+        cursor = connection.cursor()
+        sql_string = f""" SELECT * FROM orders"""
+
+        cursor.execute(sql_string)
+        for row in cursor:
+            date=str(row[3])
+            year, month, day = date.split('-')
+            date=f'{day}/{month}/{year}'
+
+            # print(f'{day}/{month}/{year}')
+            data_for_django+=f'{date},"{row[2]}"\n'
+        print(data_for_django)
+        return data_for_django
+    except (Exception, DB_Error) as error:
+        print(get_time() + '[BD_ERR] ', error)
+    finally:
+        if connection:
+            cursor.close()
+            connection.close()
+
 
 if __name__ == '__main__':
+    get_data_from_db()
     # get_notification_from_db()
     # print(get_data_from_sheet())
     # VALUES = {'31|1581192|1474|17.05.2022', '9|1876515|1335|15.05.2022', '11|1465034|719|12.05.2022', '6|1135907|682|02.05.2022',
@@ -299,4 +325,4 @@ if __name__ == '__main__':
     # VALUES = get_data_from_sheet()
 
     # print(get_queue())
-    main()
+    # main()
