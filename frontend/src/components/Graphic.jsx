@@ -13,10 +13,10 @@ const Graphic = (props) => {
           Price: contracts.price_usd
         }))}
         margin={{
-          top: 50,
+          top: 0,
           right: 5,
           left: 5,
-          bottom: 5,
+          bottom: 100,
         }}
       >
         <CartesianGrid strokeDasharray="3 3" />
