@@ -9,8 +9,12 @@ google-auth-httplib2 = "*"
 google-auth-oauthlib = "*"
 pycbrf = "*"
 psycopg2 = "*"
+drf-yasg = "*"
+django-cors-headers = "*"
 
 [dev-packages]
+django = "*"
+djangorestframework = "*"
 
 [requires]
 python_version = "3.9"

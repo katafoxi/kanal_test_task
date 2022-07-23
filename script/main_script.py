@@ -16,7 +16,7 @@ import sys
 
 
 def get_config(section):
-    filename = 'project.ini'
+    filename = '../project.ini'
     parser = ConfigParser()  # create a parser
     parser.read(filename)  # read configurate file
     configurate = {}
@@ -69,7 +69,7 @@ def main():
         time.sleep(10)  # work period
         if msvcrt.kbhit():  # if key push
             k = ord(msvcrt.getch())  # read keycode
-            if k == 27:  # if keycode = 'Escape'
+            if k :  # if keycode = 'Escape'
                 print('Application stop. Thanks for using')
                 sys.exit()  # complete the program
 
@@ -147,18 +147,18 @@ def execute_query_to_db(queue):
             cursor = connection.cursor()
 
             for row in collection:
-                id_, order_num, cost_us, delivery_date = row.split('|')
-                cost_ru = int(cost_us) * rate
+                id_, contract, price_usd, date = row.split('|')
+                price_rub = int(price_usd) * rate
 
                 if mod == 'delete':
-                    sql_string = f'DELETE FROM orders WHERE id = %s;'
+                    sql_string = f'DELETE FROM Contracts WHERE id = %s;'
                     cursor.execute(sql_string, (id_,))
                     print(get_time() + f'[INFO] Delete entry={id_}')
 
                 elif mod == 'insert':
-                    sql_string = 'INSERT INTO orders (id, order_num, cost_us, delivery_date, cost_ru)\
+                    sql_string = 'INSERT INTO Contracts (id, contract, price_usd, price_rub, date)\
                                 VALUES (%s, %s, %s, %s, %s)'
-                    cursor.execute(sql_string, (id_, order_num, cost_us, delivery_date, cost_ru))
+                    cursor.execute(sql_string, (id_, contract, price_usd, price_rub, date))
                     print(get_time() + f'[INFO] Insert entry={id_}')
 
                 connection.commit()
@@ -197,12 +197,12 @@ def create_table_db():
     try:
         connection = psycopg2.connect(**PARAMS)
         cursor = connection.cursor()
-        sql_string = """ CREATE TABLE orders(
+        sql_string = """ CREATE TABLE Contracts(
                             id integer NOT NULL  PRIMARY KEY,
-                            order_num integer NOT NULL,
-                            cost_us integer NOT NULL,
-                            delivery_date date,
-                            cost_ru decimal(10,2)); \n"""
+                            contract integer NOT NULL,
+                            price_usd integer NOT NULL,
+                            price_rub decimal(10,2),
+                            date date);"""
 
         cursor.execute(sql_string)
         connection.commit()
@@ -243,7 +243,7 @@ def get_notification_from_db(today):
     try:
         connection = psycopg2.connect(**PARAMS)
         cursor = connection.cursor()
-        sql_string = f""" SELECT * FROM orders WHERE delivery_date < %s"""
+        sql_string = f""" SELECT * FROM Contracts WHERE date < %s"""
 
         cursor.execute(sql_string, (today,))
         for row in cursor:
@@ -280,11 +280,11 @@ def get_data_from_db():
     try:
         connection = psycopg2.connect(**PARAMS)
         cursor = connection.cursor()
-        sql_string = f""" SELECT * FROM orders"""
+        sql_string = f""" SELECT * FROM Contracts"""
 
         cursor.execute(sql_string)
         for row in cursor:
-            date = str(row[3])
+            date = str(row[4])
             year, month, day = date.split('-')
             date = f'{day}/{month}/{year}'
 
@@ -302,3 +302,5 @@ def get_data_from_db():
 
 if __name__ == '__main__':
     main()
+    # print(get_config('postgresql'))
+
