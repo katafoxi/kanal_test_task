@@ -37,6 +37,7 @@ CREDENTIALS = get_config(section='googleAPI')['credentials_json_name']
 SPREADSHEET_ID = get_config(section='googleAPI')['spreadsheet_id']
 SHEET_RANGE = 'Лист1!A2:E'
 PARAMS = get_config(section='postgresql')
+WORK_PERIOD = 10
 VALUES = None
 
 
@@ -66,7 +67,7 @@ def main():
             notifications = get_notification_from_db(today)
             send_telegram(notifications)
 
-        time.sleep(10)  # work period
+        time.sleep(WORK_PERIOD)  # work period
         if msvcrt.kbhit():  # if key push
             k = ord(msvcrt.getch())  # read keycode
             if k :  # if keycode = 'Escape'
