@@ -116,7 +116,9 @@ cd backend/
 npm start
 ```
 ps. Для выхода из основного скрипта несколько раз нажимаем Escape.
+
    Для выхода из backend Ctrl+Break.
+
    Для выхода из frontend CtrL+C.
 
 
