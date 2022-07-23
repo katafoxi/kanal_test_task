@@ -15,7 +15,12 @@ import time
 import sys
 
 
-def get_config(section):
+def get_config(section: str) -> dict:
+    """
+    Получает данные из файла project.ini
+    :param section:
+    :return: словарь '[имя_параметра]':'[значение]'
+    """
     filename = '../project.ini'
     parser = ConfigParser()  # create a parser
     parser.read(filename)  # read configurate file
@@ -54,6 +59,7 @@ def main():
         create_db()
         create_table_db()
     else:
+        # если повторный старт с созданной и наполненной БД и не измененным google sheet, то
         VALUES = get_data_from_sheet()
 
     print('Application start\n\n')
@@ -70,12 +76,18 @@ def main():
         time.sleep(WORK_PERIOD)  # work period
         if msvcrt.kbhit():  # if key push
             k = ord(msvcrt.getch())  # read keycode
-            if k :  # if keycode = 'Escape'
+            if k:  # if keycode = 'Escape'
                 print('Application stop. Thanks for using')
                 sys.exit()  # complete the program
 
 
-def get_answer(question):
+def get_answer(question: str) -> bool:
+    """
+    Looping a question until you get the correct answer
+
+    :param question:
+    :return: bool
+    """
     while True:
         user_input = input(f'{question}:(y/n) ')
         try:
@@ -90,6 +102,10 @@ def get_answer(question):
 
 
 def get_creds():
+    """
+
+    :return: credential object to connect google api
+    """
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -109,12 +125,22 @@ def get_creds():
     return creds
 
 
-def get_time():
+def get_time() -> str:
+    """
+
+    :return: date as a string [hour:minute:second]
+    """
     time_to_log = '[' + time.strftime('%H:%M:%S') + '] '
     return time_to_log
 
 
 def get_data_from_sheet():
+    """
+    Get data from sheet.
+
+    :rtype: set
+    :return: values from google sheet set {'30|1773045|977|27.05.2022', '19|1888432|388|11.05.2022',...}
+    """
     try:
         service = build('sheets', 'v4', credentials=get_creds())
 
@@ -138,7 +164,14 @@ def get_data_from_sheet():
         print(err)
 
 
-def execute_query_to_db(queue):
+def execute_query_to_db(queue: tuple) -> None:
+    """
+    формирует и исполняет запросы к БД на основе режима входных данных.
+    generates and executes queries to the database based on the input data mode.
+
+    :param queue: tuple like a ( ('delete', {'30|1773045|977|27.05.2022', ...}),
+                            ('insert', {'30|654665|654|27.05.6546',...})     )
+    """
     rate = ExchangeRates()['USD'].value
     for sub_queue in queue:
         mod, collection = sub_queue
@@ -173,7 +206,10 @@ def execute_query_to_db(queue):
                 print(get_time() + '[INFO] Database connection terminated')
 
 
-def create_db():
+def create_db() -> None:
+    """
+    Create PostgreSQL database
+    """
     params = get_config(section='postgresql')
     dbname = params.pop('dbname')  # retrieved to be able to create a database
     connection = None
@@ -193,7 +229,10 @@ def create_db():
             print(get_time() + '[INFO] Database connection terminated')
 
 
-def create_table_db():
+def create_table_db() -> None:
+    """
+    Create table in database
+    """
     connection = None
     try:
         connection = psycopg2.connect(**PARAMS)
@@ -217,7 +256,17 @@ def create_table_db():
             print(get_time() + '[INFO] Database connection terminated')
 
 
-def get_queue():
+def get_queue() -> tuple:
+    """
+    При первичном исполнении вносит множество в глобальную переменную VALUES.
+    При последующем исполнии сравнивает VALUES и свежие данные из google sheet.
+    В случае изменения данных в google sheet, формирует и возвращает разницу
+    между тем, что уже есть в БД, и что есть в google sheet.
+    Формирует минимальную очередь на запросы к БД в случае обновления исходных данных.
+    :return: tuple like a ( ('delete', {'30|1773045|977|27.05.2022', ...}),
+                            ('insert', {'30|654665|654|27.05.6546',...})     )
+
+    """
     queue = tuple()
     global VALUES
     fresh_values = get_data_from_sheet()
@@ -238,7 +287,13 @@ def get_queue():
         return queue
 
 
-def get_notification_from_db(today):
+def get_notification_from_db(today: str) -> str:
+    """
+    Проверка соблюдения «срока поставки». Принимает текущую дату и возращает записи просроченных контрактов из БД.
+    Checking compliance with the "delivery date". Accepts the current date and returns records of overdue contracts from the database.
+    :param today: current date
+    :return: string values of overdue contracts
+    """
     notification = ''
     connection = None
     try:
@@ -259,7 +314,12 @@ def get_notification_from_db(today):
             connection.close()
 
 
-def send_telegram(text: str):
+def send_telegram(text: str) -> requests:
+    """
+    Sends notifications about expired contracts to telegram
+
+    :param text: string values of overdue contracts
+    """
     token = "5596509052:AAHo-BGVpi_e4cfad--61p2Qu_iAMUpeNSY"
     url = "https://api.telegram.org/bot"
     channel_id = "@db_notice"
@@ -275,33 +335,5 @@ def send_telegram(text: str):
         raise Exception("post_text error")
 
 
-def get_data_from_db():
-    data_for_django = ''
-    connection = None
-    try:
-        connection = psycopg2.connect(**PARAMS)
-        cursor = connection.cursor()
-        sql_string = f""" SELECT * FROM Contracts"""
-
-        cursor.execute(sql_string)
-        for row in cursor:
-            date = str(row[4])
-            year, month, day = date.split('-')
-            date = f'{day}/{month}/{year}'
-
-            # print(f'{day}/{month}/{year}')
-            data_for_django += f'{date},"{row[2]}"\n'
-        print(data_for_django)
-        return data_for_django
-    except (Exception, DB_Error) as error:
-        print(get_time() + '[BD_ERR] ', error)
-    finally:
-        if connection:
-            cursor.close()
-            connection.close()
-
-
 if __name__ == '__main__':
     main()
-    # print(get_config('postgresql'))
-
