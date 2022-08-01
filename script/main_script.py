@@ -1,47 +1,52 @@
-import msvcrt
+# import msvcrt
 import os.path
+import sys
+import time
+from configparser import ConfigParser
 
+import psycopg2
 import requests
-from pycbrf.toolbox import ExchangeRates
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import psycopg2
 from psycopg2 import Error as DB_Error
-from configparser import ConfigParser
-import time
-import sys
+from pycbrf.toolbox import ExchangeRates
+from os.path import exists
+
+CONFIG_FILE="./project.ini"
 
 
-def get_config(section: str) -> dict:
+def get_config(section: str) -> dict:    # sourcery skip: raise-specific-error
     """
-    Получает данные из файла project.ini
+    Получает данные из файла roject.ini
     :param section:
     :return: словарь '[имя_параметра]':'[значение]'
     """
-    filename = '../project.ini'
+    config_file = "./project.ini"
+    if not exists(config_file):
+        raise Exception(
+            "Отсутствует ini файл"
+        )
     parser = ConfigParser()  # create a parser
-    parser.read(filename)  # read configurate file
-    configurate = {}
-    if parser.has_section(section):
-        params = parser.items(section)
-        for param in params:
-            configurate[param[0]] = param[1]
-    else:
-        raise Exception('Section{0} is not found in the {1} file.'.format(section, filename))
-    return configurate
+    parser.read(config_file)  # read configurate file
+    if not parser.has_section(section):
+        raise Exception(
+            "Section {0} is not found in the {1} file.".format(section, config_file)
+        )
+    params = parser.items(section)
+    return {param[0]: param[1] for param in params}
 
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 # The ID and range of a sample spreadsheet.
-CREDENTIALS = get_config(section='googleAPI')['credentials_json_name']
-SPREADSHEET_ID = get_config(section='googleAPI')['spreadsheet_id']
-SHEET_RANGE = 'Лист1!A2:E'
-PARAMS = get_config(section='postgresql')
+CREDENTIALS = get_config(section="googleAPI")["credentials_json_name"]
+SPREADSHEET_ID = get_config(section="googleAPI")["spreadsheet_id"]
+SHEET_RANGE = "Лист1!A2:E"
+PARAMS = get_config(section="postgresql")
 WORK_PERIOD = 10
 VALUES = None
 
@@ -49,24 +54,30 @@ VALUES = None
 def main():
     today = None
     global VALUES
-    print('===================================')
-    print('To exit please push Escape/Ctrl+C')
-    print('===================================')
+    print("===================================")
+    print("To exit please push Escape/Ctrl+C")
+    print("===================================")
 
-    while not get_answer(question='Have you customized the project.ini file'):
+    while not get_answer(question="Have you customized the project.ini file"):
         print("Please customize it. I'll wait")
-    if not get_answer(question='database already exists?'):
-        create_db()
-        create_table_db()
-    else:
-        # если повторный старт с созданной и наполненной БД и не измененным google sheet, то
-        VALUES = get_data_from_sheet()
 
-    print('Application start\n\n')
+    if get_answer(question='database based on Docker?'):
+        if not get_answer(question='table already exists?'):
+            create_table_db()
+        else:
+            VALUES = get_data_from_sheet()
+    else:
+        if not get_answer(question="database already exists?"):
+            create_db()
+            create_table_db()
+        else:
+            # если повторный старт с созданной и наполненной БД и не измененным google sheet, то
+            VALUES = get_data_from_sheet()
+
+    print("Application start\n\n")
     while True:
 
-        queue = get_queue()
-        if queue:
+        if queue := get_queue():
             execute_query_to_db(queue)
         if not today and today != time.strftime("%d-%m-%Y"):
             today = time.strftime("%d-%m-%Y")
@@ -74,11 +85,11 @@ def main():
             send_telegram(notifications)
 
         time.sleep(WORK_PERIOD)  # work period
-        if msvcrt.kbhit():  # if key push
-            k = ord(msvcrt.getch())  # read keycode
-            if k:  # if keycode = 'Escape'
-                print('Application stop. Thanks for using')
-                sys.exit()  # complete the program
+        # if msvcrt.kbhit():  # if key push
+        #     k = ord(msvcrt.getch())  # read keycode
+        #     if k:  # if keycode = 'Escape'
+        #         print("Application stop. Thanks for using")
+        #         sys.exit()  # complete the program
 
 
 def get_answer(question: str) -> bool:
@@ -89,16 +100,16 @@ def get_answer(question: str) -> bool:
     :return: bool
     """
     while True:
-        user_input = input(f'{question}:(y/n) ')
+        user_input = input(f"{question}:(y/n) ")
         try:
-            if user_input.lower() == 'n':
+            if user_input.lower() == "n":
                 return False
-            elif user_input.lower() == 'y':
+            elif user_input.lower() == "y":
                 return True
             else:
                 raise ValueError
         except ValueError:
-            print('¯\_(ツ)_/¯ incomprehensible answer')
+            print(r"¯\_(ツ)_/¯ incomprehensible answer")
 
 
 def get_creds():
@@ -110,8 +121,8 @@ def get_creds():
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -120,7 +131,7 @@ def get_creds():
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS, SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open('token.json', 'w') as token:
+        with open("token.json", "w") as token:
             token.write(creds.to_json())
     return creds
 
@@ -130,8 +141,7 @@ def get_time() -> str:
 
     :return: date as a string [hour:minute:second]
     """
-    time_to_log = '[' + time.strftime('%H:%M:%S') + '] '
-    return time_to_log
+    return "[" + time.strftime("%H:%M:%S") + "] "
 
 
 def get_data_from_sheet():
@@ -142,24 +152,26 @@ def get_data_from_sheet():
     :return: values from google sheet set {'30|1773045|977|27.05.2022', '19|1888432|388|11.05.2022',...}
     """
     try:
-        service = build('sheets', 'v4', credentials=get_creds())
+        service = build("sheets", "v4", credentials=get_creds())
 
         # Call the Sheets API
         sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
-                                    range=SHEET_RANGE).execute()
+        result = (
+            sheet.values()
+            .get(spreadsheetId=SPREADSHEET_ID, range=SHEET_RANGE)
+            .execute()
+        )
 
-        values = result.get('values')
-        mod_values = []
-        if not values:
-            print(get_time() + '[ERR] No data found.')
-            return
-        else:
+        if values := result.get("values"):
+            mod_values = []
             for row in values:
                 row = "|".join(row)
                 # print(row)
-                mod_values.append(f'{row}')
+                mod_values.append(f"{row}")
             return set(mod_values)
+        else:
+            print(f"{get_time()}[ERR] No data found.")
+            return
     except HttpError as err:
         print(err)
 
@@ -172,7 +184,7 @@ def execute_query_to_db(queue: tuple) -> None:
     :param queue: tuple like a ( ('delete', {'30|1773045|977|27.05.2022', ...}),
                             ('insert', {'30|654665|654|27.05.6546',...})     )
     """
-    rate = ExchangeRates()['USD'].value
+    rate = ExchangeRates()["USD"].value
     for sub_queue in queue:
         mod, collection = sub_queue
         connection = None
@@ -180,53 +192,58 @@ def execute_query_to_db(queue: tuple) -> None:
             connection = psycopg2.connect(**PARAMS)
             cursor = connection.cursor()
 
-            for row in collection:
-                id_, contract, price_usd, date = row.split('|')
+            cursor.execute("SET datestyle TO  dmy;")
+            connection.commit()
+
+            for row in sorted(collection):
+                id_, contract, price_usd, date = row.split("|")
                 price_rub = int(price_usd) * rate
 
-                if mod == 'delete':
-                    sql_string = f'DELETE FROM Contracts WHERE id = %s;'
+                if mod == "delete":
+                    sql_string = "DELETE FROM Contracts WHERE id = %s;"
                     cursor.execute(sql_string, (id_,))
-                    print(get_time() + f'[INFO] Delete entry={id_}')
+                    print(f"{get_time()}[INFO] Delete entry={id_}")
 
-                elif mod == 'insert':
-                    sql_string = 'INSERT INTO Contracts (id, contract, price_usd, price_rub, date)\
-                                VALUES (%s, %s, %s, %s, %s)'
-                    cursor.execute(sql_string, (id_, contract, price_usd, price_rub, date))
-                    print(get_time() + f'[INFO] Insert entry={id_}')
+                elif mod == "insert":
+                    sql_string = "INSERT INTO Contracts (id, contract, price_usd, price_rub, date)\
+                                VALUES (%s, %s, %s, %s, %s)"
+                    cursor.execute(
+                        sql_string, (id_, contract, price_usd, price_rub, date)
+                    )
+                    print(f"{get_time()}[INFO] Insert entry={id_}")
 
                 connection.commit()
 
         except (Exception, DB_Error) as error:
-            print(get_time() + '[ERR] ', error)
+            print(f"{get_time()}[ERR] ", error)
         finally:
             if connection:
                 cursor.close()
                 connection.close()
-                print(get_time() + '[INFO] Database connection terminated')
+                print(f"{get_time()}[INFO] Database connection terminated")
 
 
 def create_db() -> None:
     """
     Create PostgreSQL database
     """
-    params = get_config(section='postgresql')
-    dbname = params.pop('dbname')  # retrieved to be able to create a database
+    params = get_config(section="postgresql")
+    dbname = params.pop("dbname")  # retrieved to be able to create a database
     connection = None
     try:
         connection = psycopg2.connect(**params)
         connection.autocommit = True
         cursor = connection.cursor()
-        sql_string = f'CREATE database {dbname};'
+        sql_string = f"CREATE database {dbname};"
         cursor.execute(sql_string)
-        print(get_time() + f'[INFO] DB {dbname} created successfully')
+        print(f"{get_time()}[INFO] DB {dbname} created successfully")
     except (Exception, DB_Error) as error:
-        print(get_time() + '[CREATE_DB_ERR] ', error)
+        print(f"{get_time()}[CREATE_DB_ERR] ", error)
     finally:
         if connection:
             cursor.close()
             connection.close()
-            print(get_time() + '[INFO] Database connection terminated')
+            print(f"{get_time()}[INFO] Database connection terminated")
 
 
 def create_table_db() -> None:
@@ -246,14 +263,16 @@ def create_table_db() -> None:
 
         cursor.execute(sql_string)
         connection.commit()
-        print(get_time() + '[INFO] Table created successfully')
+        cursor.execute("SET datestyle TO  dmy;")
+        connection.commit()
+        print(f"{get_time()}[INFO] Table created successfully")
     except (Exception, DB_Error) as error:
-        print(get_time() + '[CREATE_TABLE_ERR] ', error)
+        print(f"{get_time()}[CREATE_TABLE_ERR] ", error)
     finally:
         if connection:
             cursor.close()
             connection.close()
-            print(get_time() + '[INFO] Database connection terminated')
+            print(f"{get_time()}[INFO] Database connection terminated")
 
 
 def get_queue() -> tuple:
@@ -273,16 +292,16 @@ def get_queue() -> tuple:
 
     if not VALUES:
         VALUES = fresh_values
-        queue += ('insert', VALUES),
+        queue += (("insert", VALUES),)
         return queue
 
     elif fresh_values == VALUES:
-        print(get_time() + '[INFO] no changes')
+        print(f"{get_time()}[INFO] no changes")
         return None
 
     else:
-        queue += ('delete', VALUES - fresh_values),
-        queue += ('insert', fresh_values - VALUES),
+        queue += (("delete", VALUES - fresh_values),)
+        queue += (("insert", fresh_values - VALUES),)
         VALUES = fresh_values
         return queue
 
@@ -294,46 +313,44 @@ def get_notification_from_db(today: str) -> str:
     :param today: current date
     :return: string values of overdue contracts
     """
-    notification = ''
+    notification = ""
     connection = None
     try:
         connection = psycopg2.connect(**PARAMS)
         cursor = connection.cursor()
-        sql_string = f""" SELECT * FROM Contracts WHERE date < %s"""
+        cursor.execute("SET datestyle TO  dmy;")
+        connection.commit()
+        sql_string = """ SELECT * FROM Contracts WHERE date < %s"""
 
         cursor.execute(sql_string, (today,))
         for row in cursor:
             # print(row[1])
-            notification += f'Срок поставки по заказу {row[1]} прошел!\n'
+            notification += f"Срок поставки по заказу {row[1]} прошел!\n"
         return notification
     except (Exception, DB_Error) as error:
-        print(get_time() + '[NOTIFICATION_ERR] ', error)
+        print(f"{get_time()}[NOTIFICATION_ERR] ", error)
     finally:
         if connection:
             cursor.close()
             connection.close()
 
 
-def send_telegram(text: str) -> requests:
+def send_telegram(text: str) -> requests:    # sourcery skip: raise-specific-error
     """
     Sends notifications about expired contracts to telegram
 
     :param text: string values of overdue contracts
     """
     token = "5596509052:AAHo-BGVpi_e4cfad--61p2Qu_iAMUpeNSY"
-    url = "https://api.telegram.org/bot"
     channel_id = "@db_notice"
-    url += token
-    method = url + "/sendMessage"
+    url = f"https://api.telegram.org/bot{token}"
+    method = f"{url}/sendMessage"
 
-    r = requests.post(method, data={
-        "chat_id": channel_id,
-        "text": text
-    })
+    r = requests.post(method, data={"chat_id": channel_id, "text": text})
 
     if r.status_code != 200:
         raise Exception("post_text error")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
