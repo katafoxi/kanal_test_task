@@ -1,5 +1,5 @@
 # pull official base image
-FROM python:3.9.13-bullseye AS base
+FROM python:3.9.13-slim AS base
 
 
 FROM base AS python-deps
@@ -12,11 +12,11 @@ ENV LANG="C.UTF-8" \
 
 # Install pipenv and compilation dependencies
 RUN pip install pipenv
-RUN apt-get update && apt-get install -y --no-install-recommends gcc
+#    && apt-get update  && apt-get install -y --no-install-recommends gcc && rm -Rf /var/lib/apt/lists/*
 
 # Install python dependencies in /.venv
-COPY ../arch/Pipfile .
-COPY ../arch/Pipfile.lock .
+COPY Pipfile .
+COPY Pipfile.lock .
 RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
 
 
@@ -34,8 +34,10 @@ USER appuser
 
 # Install application into container
 COPY --chown=appuser . .
+#VOLUME /appuser
 
 # Run the application
 #ENTRYPOINT ["python", "-m", "http.server"]
-CMD ["python", "main_script.py"]
 #CMD ["--directory", "directory", "8000"]
+CMD ["python", "main.py"]
+#CMD ["sh"]

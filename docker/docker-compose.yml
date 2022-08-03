@@ -33,6 +33,8 @@ services:
           memory: 4G
     networks:
       - postgres
+#    logging:
+#      driver: none
     
   
   pgadmin:
@@ -53,6 +55,21 @@ services:
           memory: 1G
     networks:
       - postgres
+#    logging:
+#      driver: none
+
+#  script:
+#    build:
+#      dockerfile: ../script/dockerfile
+#      context: ../script/
+#    container_name: script
+#    image: script:v1
+#    networks:
+#      - postgres
+#    depends_on:
+#      - db
+
+
 
 networks:
   postgres:

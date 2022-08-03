@@ -1,5 +1,7 @@
 # Ignore everything
-#**
+*.cfg
+project_dev.ini
+setup.cfg
 
 # ... except for dependencies and source
 #!Pipfile
