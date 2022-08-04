@@ -83,30 +83,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'djangoPage.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-
-# import get_config
-# params=get_config(section='postgresql')
-#
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': params['dbname'],
-#         'USER': params['user'],
-#         'PASSWORD': params['password'],
-#         'HOST': params['host'],
-#         'PORT': params['port'],
-#     }
-# }
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'task_db',
-        'USER': 'postgres',
-        'PASSWORD': '123456',
-        'HOST': 'localhost',
+        'NAME': os.environ.get('POSTGRES_NAME'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': 'pg_db',
         'PORT': '5432',
     }
 }
