@@ -52,6 +52,12 @@
 docker-compose up
 ```
 Идем в браузер по адресу http://localhost:3000/
+
 pgAdmin по адресу http://localhost:5050/ 
-      PGADMIN_DEFAULT_EMAIL: noemail@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: root
+
+PGADMIN_DEFAULT_EMAIL:             
+
+    noemail@gmail.com
+PGADMIN_DEFAULT_PASSWORD:
+            
+    root
