@@ -41,12 +41,6 @@
 В полученной папке kanal_test_task-master открываем папку docker.
 
 В папке docker открываем консоль и запускаем командой:
-```
- docker-compose run backend python manage.py migrate
-```
-Создаются контейнеры БД, pgAdmin, script, backent  и frontend, проводится первичное наполнение БД, отправляется сообщение в телеграмм, проходят миграции с django. 
-
-Вводим команду:
 
 ```sh
 docker-compose up
